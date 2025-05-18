@@ -1,17 +1,15 @@
-import os
 import json
+import os
 from typing import List
-from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
-from pydantic import BaseModel
-from dotenv import load_dotenv
+
 from fastapi import FastAPI, Query
 from fastapi.responses import StreamingResponse
 from openai import OpenAI
+from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
+from pydantic import BaseModel
+
 from .utils.prompt import ClientMessage, convert_to_openai_messages
 from .utils.tools import get_current_weather
-
-
-load_dotenv(".env.local")
 
 app = FastAPI()
 
@@ -27,6 +25,7 @@ class Request(BaseModel):
 available_tools = {
     "get_current_weather": get_current_weather,
 }
+
 
 def do_stream(messages: List[ChatCompletionMessageParam]):
     stream = client.chat.completions.create(
@@ -57,6 +56,7 @@ def do_stream(messages: List[ChatCompletionMessageParam]):
     )
 
     return stream
+
 
 def stream_text(messages: List[ChatCompletionMessageParam], protocol: str = 'data'):
     draft_tool_calls = []
@@ -117,7 +117,7 @@ def stream_text(messages: List[ChatCompletionMessageParam], protocol: str = 'dat
                     name = tool_call.function.name
                     arguments = tool_call.function.arguments
 
-                    if (id is not None):
+                    if id is not None:
                         draft_tool_calls_index += 1
                         draft_tool_calls.append(
                             {"id": id, "name": name, "arguments": ""})
@@ -128,19 +128,18 @@ def stream_text(messages: List[ChatCompletionMessageParam], protocol: str = 'dat
             else:
                 yield '0:{text}\n'.format(text=json.dumps(choice.delta.content))
 
-        if chunk.choices == []:
+        if not chunk.choices:
             usage = chunk.usage
             prompt_tokens = usage.prompt_tokens
             completion_tokens = usage.completion_tokens
 
-            yield 'e:{{"finishReason":"{reason}","usage":{{"promptTokens":{prompt},"completionTokens":{completion}}},"isContinued":false}}\n'.format(
+            yield ('e:{{"finishReason":"{reason}","usage":{{"promptTokens":{prompt},"completionTokens":{completion}}},'
+                   '"isContinued":false}}\n').format(
                 reason="tool-calls" if len(
                     draft_tool_calls) > 0 else "stop",
                 prompt=prompt_tokens,
                 completion=completion_tokens
             )
-
-
 
 
 @app.post("/api/chat")
